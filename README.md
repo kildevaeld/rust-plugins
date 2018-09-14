@@ -37,7 +37,7 @@ fn main() {
         plugin.id
     };
 
-    m.plugin(id).instance().register(...)?;
+    m.plugin(&id).instance().register(...)?;
 
 
 }
