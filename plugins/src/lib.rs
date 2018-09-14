@@ -6,6 +6,7 @@ pub mod error;
 pub mod macros;
 pub mod types;
 
+pub use error::*;
 pub use types::*;
 
 #[cfg(test)]
