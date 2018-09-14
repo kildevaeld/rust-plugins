@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate plugins;
-use plugins::error::{Result, ResultExt};
-use plugins::types::PluginManager as Own;
+use plugins::{PluginManager, Result, ResultExt};
 
 plugin_manager!{
     manager_name = MyManager;
