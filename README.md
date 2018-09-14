@@ -43,4 +43,22 @@ fn main() {
 }
 
 
+```rust
+
+
+struct Loader;
+
+impl PluginLoader for Loader {
+    type PluginType = Plugin;
+    fn can(&self, path: &Path) -> bool {
+        true
+    }
+
+    fn load(&self, path: &Path) -> Result<Box<dyn plugins::Plugin<Self::Item>>> {
+
+    }
+    
+}
+
+
 ```
