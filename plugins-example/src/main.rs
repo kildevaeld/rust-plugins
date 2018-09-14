@@ -30,7 +30,7 @@ declare_plugin!(Plugin, TestPlugin, TestPlugin::default);
 fn main() {
     let mut manager = MyManager::new();
     let id = {
-        let plugin = manager.add_plugin(Box::new(TestPlugin {}));
+        let plugin = manager.add_plugin(Box::new(TestPlugin::default()));
         plugin.instance().hello().unwrap();
         plugin.id().clone()
     };
