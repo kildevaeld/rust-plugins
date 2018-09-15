@@ -1,26 +1,6 @@
 #[macro_use]
 extern crate plugins;
-#[macro_use]
-extern crate error_chain;
 use plugins::PluginManager;
-
-// mod error {
-//     use plugins;
-//     error_chain!{
-//         links {
-//             Plugins(plugins::Error, plugins::ErrorKind);
-//         }
-//     }
-// }
-
-//use error::{Result, ResultExt};
-
-// plugin_manager!{
-//     manager_name = MyManager;
-//     pub trait Plugin {
-//         fn hello(&self) -> Result<()>;
-//     }
-// }
 
 pub trait Plugin {
     fn hello(&self);
