@@ -194,7 +194,7 @@ macro_rules! plugin_manager {
 			)*
 		}
     ) => {
-        plugin_manager!($name, Manager);
+        build_plugin_manager!($name);
         pub trait $name {
 			$(
 				fn $m_name ( $($p)* ) -> $result<$out $(, $error)* > ;
@@ -211,106 +211,13 @@ macro_rules! plugin_manager {
 			)*
 		}
     ) => {
-        plugin_manager!($name, $manager_name);
+        build_plugin_manager!($name, $manager_name);
         pub trait $name {
 			$(
 				fn $m_name ( $($p)* ) -> $result<$out $(, $error)* > ;
 			)*
 		}
-
-
-    };
-    ($plugin_type:ident) => {
-        plugin_manager!($plugin_type, PluginManager);
-    };
-    ($plugin_type:ident, $name:ident) => {
-        struct Instance {
-            id: $crate::uuid::Uuid,
-            instance: Box<dyn $plugin_type>,
-        }
-
-        impl $crate::Plugin<Box<dyn $plugin_type>> for Instance {
-            fn id(&self) -> &$crate::uuid::Uuid {
-                &self.id
-            }
-
-            fn instance(&self) -> &Box<dyn $plugin_type> {
-                &self.instance
-            }
-        }
-
-        pub struct $name {
-            plugins: Vec<Box<dyn $crate::Plugin<Box<dyn $plugin_type>>>>,
-            loaders: Vec<Box<dyn $crate::PluginLoader<Item = Box<dyn $plugin_type>>>>,
-        }
-
-       native_loader!($plugin_type);
-
-        impl $name {
-            pub fn new() -> $name {
-                let mut out = $name {
-                    plugins: vec![],
-                    loaders: vec![],
-                };
-
-               out.loaders.push(Box::new(NativeLoader::new()));
-
-                out
-            }
-        }
-
-        impl $crate::PluginManager for $name {
-            type PluginType = Box<dyn $plugin_type>;
-
-            fn plugins(&self) -> &Vec<Box<dyn $crate::Plugin<Self::PluginType>>> {
-                &self.plugins
-            }
-
-            fn add_plugin(
-                &mut self,
-                plugin: Self::PluginType,
-            ) -> &Box<dyn $crate::Plugin<Self::PluginType>> {
-                self.plugins.push(Box::new(Instance {
-                    id: $crate::uuid::Uuid::new_v4(),
-                    instance: plugin,
-                }));
-                self.plugins.last().unwrap()
-            }
-
-            fn add_loader(
-                &mut self,
-                loader: Box<dyn $crate::PluginLoader<Item = Self::PluginType>>,
-            ) {
-                self.loaders.push(loader);
-            }
-
-            fn load_plugin(
-                &mut self,
-                path: &std::path::Path,
-            ) -> $crate::Result<&Box<dyn $crate::Plugin<Self::PluginType>>> {
-                let loader = self.loaders.iter().find(|m| m.can(&path));
-                if loader.is_none() {
-                    return Err($crate::ErrorKind::Loader(path.to_path_buf()).into());
-                }
-
-                let plugin = loader.unwrap().load(path)?;
-
-                self.plugins.push(plugin);
-
-                Ok(self.plugins.last().unwrap())
-            }
-
-            fn unload_plugin(&mut self, id: &$crate::uuid::Uuid) -> bool {
-
-                if let Some(found) = self.plugins.iter().position(|m| m.id() == id) {
-                     self.plugins.remove(found);
-                     return false;
-                }
-
-                true
-            }
-        }
-    };
+    }
 }
 
 /// Declare a plugin type and its constructor.

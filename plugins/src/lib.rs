@@ -2,8 +2,9 @@ pub extern crate libloading;
 pub extern crate uuid;
 #[macro_use]
 extern crate error_chain;
+
 mod error;
-pub mod macros;
+mod macros;
 mod types;
 
 pub use error::*;
