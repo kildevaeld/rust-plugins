@@ -4,13 +4,12 @@ Usage
 
 extern crate plugins;
 
-plugin_manager!{
-    manager_name = MyManager; // Defaults to PluginManager
-    pub trait Plugin {
-        fn register(&self, build: Builder) -> Result<Builder>;
-        fn name(&self) -> &'static str;
-    }
+pub trait Plugin {
+    fn register(&self, build: Builder) -> Result<Builder>;
+    fn name(&self) -> &'static str;
 }
+
+build_plugin_manager!(Plugin, MyManager);
 
 #[derive(Default)]
 struct MyPlugin;
