@@ -1,8 +1,8 @@
 #[macro_export]
 macro_rules! native_loader {
     ($plugin_type:ident) => {
-        // use $crate::error::Result;
-        // use $crate::error::ResultExt;
+        // use $crate::Result;
+        // use $crate::ResultExt;
 
         struct NativePlugin {
             id: $crate::uuid::Uuid,
@@ -16,7 +16,7 @@ macro_rules! native_loader {
             }
         }
 
-        impl $crate::types::Plugin<Box<dyn $plugin_type>> for NativePlugin {
+        impl $crate::Plugin<Box<dyn $plugin_type>> for NativePlugin {
             fn id(&self) -> &$crate::uuid::Uuid {
                 &self.id
             }
@@ -42,19 +42,19 @@ macro_rules! native_loader {
             unsafe fn load_plugin<P: AsRef<std::ffi::OsStr>>(
                 &self,
                 filename: P,
-            ) -> $crate::error::Result<Box<dyn $crate::types::Plugin<Box<dyn $plugin_type>>>> {
+            ) -> $crate::Result<Box<dyn $crate::Plugin<Box<dyn $plugin_type>>>> {
                 type PluginCreate = unsafe fn() -> *mut $plugin_type;
 
-                let lib = $crate::libloading::Library::new(filename.as_ref())
-                    .chain_err(|| "Unable to load the plugin")?;
+                let lib = $crate::libloading::Library::new(filename.as_ref())?;
+                //.chain_err(|| "Unable to load the plugin")?;
                 let id = $crate::uuid::Uuid::new_v4();
 
                 let plugin: Box<dyn $plugin_type>;
 
                 {
-                    let constructor: $crate::libloading::Symbol<PluginCreate> = lib
-                        .get(b"_plugin_create")
-                        .chain_err(|| "The `_plugin_create` symbol wasn't found.")?;
+                    let constructor: $crate::libloading::Symbol<PluginCreate> =
+                        lib.get(b"_plugin_create")?;
+                    //.chain_err(|| "The `_plugin_create` symbol wasn't found.")?;
 
                     let boxed_raw = constructor();
 
@@ -69,13 +69,13 @@ macro_rules! native_loader {
             }
         }
 
-        impl $crate::types::PluginLoader for NativeLoader {
+        impl $crate::PluginLoader for NativeLoader {
             type Item = Box<dyn $plugin_type>;
 
             fn load(
                 &self,
                 path: &std::path::Path,
-            ) -> $crate::error::Result<Box<dyn $crate::types::Plugin<Self::Item>>> {
+            ) -> $crate::Result<Box<dyn $crate::Plugin<Self::Item>>> {
                 let plugin = unsafe { self.load_plugin(path)? };
                 Ok(plugin)
             }
@@ -86,6 +86,100 @@ macro_rules! native_loader {
                 }
 
                 false
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! build_plugin_manager {
+    ($plugin_type:ident) => {
+        build_plugin_manager!($plugin_type, PluginManager);
+    };
+    ($plugin_type:ident, $manager_name:ident) => {
+        struct Instance {
+            id: $crate::uuid::Uuid,
+            instance: Box<dyn $plugin_type>,
+        }
+
+        impl $crate::Plugin<Box<dyn $plugin_type>> for Instance {
+            fn id(&self) -> &$crate::uuid::Uuid {
+                &self.id
+            }
+
+            fn instance(&self) -> &Box<dyn $plugin_type> {
+                &self.instance
+            }
+        }
+
+        pub struct $manager_name {
+            plugins: Vec<Box<dyn $crate::Plugin<Box<dyn $plugin_type>>>>,
+            loaders: Vec<Box<dyn $crate::PluginLoader<Item = Box<dyn $plugin_type>>>>,
+        }
+
+        native_loader!($plugin_type);
+
+        impl $manager_name {
+            pub fn new() -> $manager_name {
+                let mut out = $manager_name {
+                    plugins: vec![],
+                    loaders: vec![],
+                };
+
+                out.loaders.push(Box::new(NativeLoader::new()));
+
+                out
+            }
+        }
+
+        impl $crate::PluginManager for $manager_name {
+            type PluginType = Box<dyn $plugin_type>;
+
+            fn plugins(&self) -> &Vec<Box<dyn $crate::Plugin<Self::PluginType>>> {
+                &self.plugins
+            }
+
+            fn add_plugin(
+                &mut self,
+                plugin: Self::PluginType,
+            ) -> &Box<dyn $crate::Plugin<Self::PluginType>> {
+                self.plugins.push(Box::new(Instance {
+                    id: $crate::uuid::Uuid::new_v4(),
+                    instance: plugin,
+                }));
+                self.plugins.last().unwrap()
+            }
+
+            fn add_loader(
+                &mut self,
+                loader: Box<dyn $crate::PluginLoader<Item = Self::PluginType>>,
+            ) {
+                self.loaders.push(loader);
+            }
+
+            fn load_plugin(
+                &mut self,
+                path: &std::path::Path,
+            ) -> $crate::Result<&Box<dyn $crate::Plugin<Self::PluginType>>> {
+                let loader = self.loaders.iter().find(|m| m.can(&path));
+                if loader.is_none() {
+                    return Err($crate::ErrorKind::Loader(path.to_path_buf()).into());
+                }
+
+                let plugin = loader.unwrap().load(path)?;
+
+                self.plugins.push(plugin);
+
+                Ok(self.plugins.last().unwrap())
+            }
+
+            fn unload_plugin(&mut self, id: &$crate::uuid::Uuid) -> bool {
+                if let Some(found) = self.plugins.iter().position(|m| m.id() == id) {
+                    self.plugins.remove(found);
+                    return false;
+                }
+
+                true
             }
         }
     };
@@ -135,7 +229,7 @@ macro_rules! plugin_manager {
             instance: Box<dyn $plugin_type>,
         }
 
-        impl $crate::types::Plugin<Box<dyn $plugin_type>> for Instance {
+        impl $crate::Plugin<Box<dyn $plugin_type>> for Instance {
             fn id(&self) -> &$crate::uuid::Uuid {
                 &self.id
             }
@@ -146,8 +240,8 @@ macro_rules! plugin_manager {
         }
 
         pub struct $name {
-            plugins: Vec<Box<dyn $crate::types::Plugin<Box<dyn $plugin_type>>>>,
-            loaders: Vec<Box<dyn $crate::types::PluginLoader<Item = Box<dyn $plugin_type>>>>,
+            plugins: Vec<Box<dyn $crate::Plugin<Box<dyn $plugin_type>>>>,
+            loaders: Vec<Box<dyn $crate::PluginLoader<Item = Box<dyn $plugin_type>>>>,
         }
 
        native_loader!($plugin_type);
@@ -165,17 +259,17 @@ macro_rules! plugin_manager {
             }
         }
 
-        impl $crate::types::PluginManager for $name {
+        impl $crate::PluginManager for $name {
             type PluginType = Box<dyn $plugin_type>;
 
-            fn plugins(&self) -> &Vec<Box<dyn $crate::types::Plugin<Self::PluginType>>> {
+            fn plugins(&self) -> &Vec<Box<dyn $crate::Plugin<Self::PluginType>>> {
                 &self.plugins
             }
 
             fn add_plugin(
                 &mut self,
                 plugin: Self::PluginType,
-            ) -> &Box<dyn $crate::types::Plugin<Self::PluginType>> {
+            ) -> &Box<dyn $crate::Plugin<Self::PluginType>> {
                 self.plugins.push(Box::new(Instance {
                     id: $crate::uuid::Uuid::new_v4(),
                     instance: plugin,
@@ -185,7 +279,7 @@ macro_rules! plugin_manager {
 
             fn add_loader(
                 &mut self,
-                loader: Box<dyn $crate::types::PluginLoader<Item = Self::PluginType>>,
+                loader: Box<dyn $crate::PluginLoader<Item = Self::PluginType>>,
             ) {
                 self.loaders.push(loader);
             }
@@ -193,10 +287,10 @@ macro_rules! plugin_manager {
             fn load_plugin(
                 &mut self,
                 path: &std::path::Path,
-            ) -> $crate::error::Result<&Box<dyn $crate::types::Plugin<Self::PluginType>>> {
+            ) -> $crate::Result<&Box<dyn $crate::Plugin<Self::PluginType>>> {
                 let loader = self.loaders.iter().find(|m| m.can(&path));
                 if loader.is_none() {
-                    return Err($crate::error::ErrorKind::Loader(path.to_path_buf()).into());
+                    return Err($crate::ErrorKind::Loader(path.to_path_buf()).into());
                 }
 
                 let plugin = loader.unwrap().load(path)?;

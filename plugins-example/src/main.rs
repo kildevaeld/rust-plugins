@@ -1,21 +1,39 @@
 #[macro_use]
 extern crate plugins;
-use plugins::{PluginManager, Result, ResultExt};
+#[macro_use]
+extern crate error_chain;
+use plugins::PluginManager;
 
-plugin_manager!{
-    manager_name = MyManager;
-    pub trait Plugin {
-        fn hello(&self) -> Result<()>;
-    }
+// mod error {
+//     use plugins;
+//     error_chain!{
+//         links {
+//             Plugins(plugins::Error, plugins::ErrorKind);
+//         }
+//     }
+// }
+
+//use error::{Result, ResultExt};
+
+// plugin_manager!{
+//     manager_name = MyManager;
+//     pub trait Plugin {
+//         fn hello(&self) -> Result<()>;
+//     }
+// }
+
+pub trait Plugin {
+    fn hello(&self);
 }
+
+build_plugin_manager!(Plugin, MyManager);
 
 #[derive(Default)]
 struct TestPlugin;
 
 impl Plugin for TestPlugin {
-    fn hello(&self) -> Result<()> {
+    fn hello(&self) {
         println!("Hello, orld");
-        Ok(())
     }
 }
 
@@ -31,7 +49,7 @@ fn main() {
     let mut manager = MyManager::new();
     let id = {
         let plugin = manager.add_plugin(Box::new(TestPlugin::default()));
-        plugin.instance().hello().unwrap();
+        plugin.instance().hello();
         plugin.id().clone()
     };
     manager.unload_plugin(&id);
