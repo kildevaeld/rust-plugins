@@ -1,9 +1,6 @@
 #[macro_export]
 macro_rules! native_loader {
     ($plugin_type:ident) => {
-        // use $crate::Result;
-        // use $crate::ResultExt;
-
         struct NativePlugin {
             id: $crate::uuid::Uuid,
             library: $crate::libloading::Library,
@@ -26,11 +23,11 @@ macro_rules! native_loader {
         }
 
         #[cfg(target_os = "windows")]
-        static LIB_EXT: &'static str = "dll";
+        pub static LIB_EXT: &'static str = "dll";
         #[cfg(target_os = "macos")]
-        static LIB_EXT: &'static str = "dylib";
+        pub static LIB_EXT: &'static str = "dylib";
         #[cfg(target_os = "linux")]
-        static LIB_EXT: &'static str = "so";
+        pub static LIB_EXT: &'static str = "so";
 
         struct NativeLoader;
 
@@ -46,7 +43,7 @@ macro_rules! native_loader {
                 type PluginCreate = unsafe fn() -> *mut $plugin_type;
 
                 let lib = $crate::libloading::Library::new(filename.as_ref())?;
-                //.chain_err(|| "Unable to load the plugin")?;
+
                 let id = $crate::uuid::Uuid::new_v4();
 
                 let plugin: Box<dyn $plugin_type>;
@@ -54,7 +51,6 @@ macro_rules! native_loader {
                 {
                     let constructor: $crate::libloading::Symbol<PluginCreate> =
                         lib.get(b"_plugin_create")?;
-                    //.chain_err(|| "The `_plugin_create` symbol wasn't found.")?;
 
                     let boxed_raw = constructor();
 
@@ -82,7 +78,7 @@ macro_rules! native_loader {
 
             fn can(&self, path: &std::path::Path) -> bool {
                 if let Some(ext) = path.extension() {
-                    return ext.to_str().unwrap_or("") == path.to_str().unwrap_or("");
+                    return ext.to_str().unwrap_or("") == LIB_EXT;
                 }
 
                 false
