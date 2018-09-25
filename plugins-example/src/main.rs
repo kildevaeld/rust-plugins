@@ -29,7 +29,7 @@ fn main() {
     let mut manager = MyManager::new();
     let id = {
         let plugin = manager.add_plugin(Box::new(TestPlugin::default()));
-        plugin.instance().hello();
+        plugin.instance().unwrap().hello();
         plugin.id().clone()
     };
     manager.unload_plugin(&id);

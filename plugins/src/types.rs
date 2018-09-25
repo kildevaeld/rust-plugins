@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 pub trait Plugin<T> {
     fn id(&self) -> &Uuid;
-    fn instance(&self) -> &T;
+    fn instance(&self) -> Option<&T>;
 }
 
 pub trait PluginLoader {

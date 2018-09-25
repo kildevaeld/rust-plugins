@@ -3,22 +3,26 @@ macro_rules! native_loader {
     ($plugin_type:ident) => {
         struct NativePlugin {
             id: $crate::uuid::Uuid,
+            plugin: Option<Box<dyn $plugin_type>>,
             library: $crate::libloading::Library,
-            plugin: Box<dyn $plugin_type>,
         }
 
-        // impl Drop for NativePlugin {
-        //     fn drop(&mut self) {
-        //         drop(&self.library);
-        //     }
-        // }
+        impl Drop for NativePlugin {
+            fn drop(&mut self) {
+                self.plugin = None;
+                drop(&self.library);
+            }
+        }
 
         impl $crate::Plugin<Box<dyn $plugin_type>> for NativePlugin {
             fn id(&self) -> &$crate::uuid::Uuid {
                 &self.id
             }
-            fn instance(&self) -> &Box<dyn $plugin_type> {
-                &self.plugin
+            fn instance(&self) -> Option<&Box<dyn $plugin_type>> {
+                match self.plugin {
+                    Some(ref e) => Some(&e),
+                    None => None,
+                }
             }
         }
 
@@ -60,7 +64,7 @@ macro_rules! native_loader {
                 Ok(Box::new(NativePlugin {
                     id: id,
                     library: lib,
-                    plugin: plugin,
+                    plugin: Some(plugin),
                 }))
             }
         }
@@ -103,8 +107,8 @@ macro_rules! build_plugin_manager {
                 &self.id
             }
 
-            fn instance(&self) -> &Box<dyn $plugin_type> {
-                &self.instance
+            fn instance(&self) -> Option<&Box<dyn $plugin_type>> {
+                Some(&self.instance)
             }
         }
 
