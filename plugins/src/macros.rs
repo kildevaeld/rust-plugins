@@ -7,11 +7,11 @@ macro_rules! native_loader {
             plugin: Box<dyn $plugin_type>,
         }
 
-        impl Drop for NativePlugin {
-            fn drop(&mut self) {
-                drop(&self.library);
-            }
-        }
+        // impl Drop for NativePlugin {
+        //     fn drop(&mut self) {
+        //         drop(&self.library);
+        //     }
+        // }
 
         impl $crate::Plugin<Box<dyn $plugin_type>> for NativePlugin {
             fn id(&self) -> &$crate::uuid::Uuid {
