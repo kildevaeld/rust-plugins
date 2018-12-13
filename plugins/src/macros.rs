@@ -1,3 +1,4 @@
+#[cfg(feature = "dll")]
 #[macro_export]
 macro_rules! native_loader {
     ($plugin_type:ident) => {
@@ -46,7 +47,17 @@ macro_rules! native_loader {
             ) -> $crate::Result<Box<dyn $crate::Plugin<Box<dyn $plugin_type>>>> {
                 type PluginCreate = unsafe fn() -> *mut $plugin_type;
 
-                let lib = $crate::libloading::Library::new(filename.as_ref())?;
+                let lib = if cfg!(unix) {
+                    let os_lib = $crate::libloading::os::unix::Library::open(
+                        Some(filename.as_ref()),
+                        $crate::libc::RTLD_NODELETE | $crate::libc::RTLD_NOW,
+                    )?;
+                    $crate::libloading::Library::from(os_lib)
+                } else {
+                    $crate::libloading::Library::new(filename.as_ref())?
+                };
+
+                //let lib = $crate::libloading::Library::new(filename.as_ref())?;
 
                 let id = $crate::uuid::Uuid::new_v4();
 
@@ -91,6 +102,26 @@ macro_rules! native_loader {
     };
 }
 
+#[cfg(not(feature = "dll"))]
+#[macro_export]
+macro_rules! native_loader {
+    ($plugin_type:ident) => {};
+}
+
+#[cfg(not(feature = "dll"))]
+#[macro_export]
+macro_rules! push_native {
+    ($manager: ident) => {};
+}
+
+#[cfg(feature = "dll")]
+#[macro_export]
+macro_rules! push_native {
+    ($manager: ident) => {
+        $manager.loaders.push(Box::new(NativeLoader::new()));
+    };
+}
+
 #[macro_export]
 macro_rules! build_plugin_manager {
     ($plugin_type:ident) => {
@@ -126,7 +157,9 @@ macro_rules! build_plugin_manager {
                     loaders: vec![],
                 };
 
-                out.loaders.push(Box::new(NativeLoader::new()));
+                // #[cfg(feature = "dll")]
+                // out.loaders.push(Box::new(NativeLoader::new()));
+                push_native!(out);
 
                 out
             }
@@ -185,41 +218,6 @@ macro_rules! build_plugin_manager {
     };
 }
 
-#[macro_export]
-macro_rules! plugin_manager {
-    (
-        pub trait $name: ident {
-			$(
-				fn $m_name: ident ( $($p: tt)* ) -> $result: tt <$out: ty $(, $error: ty)* >;
-			)*
-		}
-    ) => {
-        build_plugin_manager!($name);
-        pub trait $name {
-			$(
-				fn $m_name ( $($p)* ) -> $result<$out $(, $error)* > ;
-			)*
-		}
-
-
-    };
-    (
-        manager_name = $manager_name: ident;
-        pub trait $name: ident {
-			$(
-				fn $m_name: ident ( $($p: tt)* ) -> $result: tt <$out: ty $(, $error: ty)* >;
-			)*
-		}
-    ) => {
-        build_plugin_manager!($name, $manager_name);
-        pub trait $name {
-			$(
-				fn $m_name ( $($p)* ) -> $result<$out $(, $error)* > ;
-			)*
-		}
-    }
-}
-
 /// Declare a plugin type and its constructor.
 ///
 /// # Notes
@@ -230,8 +228,12 @@ macro_rules! plugin_manager {
 #[macro_export]
 macro_rules! declare_plugin {
     ($plugin_trait:ident, $plugin_type:ty, $constructor:path) => {
+        declare_plugin!($plugin_trait, $plugin_type, $constructor, _plugin_create);
+    };
+
+    ($plugin_trait:ident, $plugin_type:ty, $constructor:path, $fn: ident) => {
         #[no_mangle]
-        pub extern "C" fn _plugin_create() -> *mut $plugin_trait {
+        pub extern "C" fn $fn() -> *mut $plugin_trait {
             // make sure the constructor is the correct type.
             let constructor: fn() -> $plugin_type = $constructor;
 

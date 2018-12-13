@@ -1,3 +1,6 @@
+#[cfg(feature = "dll")]
+pub extern crate libc;
+#[cfg(feature = "dll")]
 pub extern crate libloading;
 pub extern crate uuid;
 #[macro_use]

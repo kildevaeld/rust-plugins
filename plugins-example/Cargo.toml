@@ -4,7 +4,8 @@ version = "0.1.0"
 authors = ["Rasmus Kildevæld <rasmuskildevaeld@gmail.com>"]
 
 [dependencies]
-plugins = { path = "../plugins" }
+plugins = { path = "../plugins", features = ["dll"] }
 error-chain = "~0.12.0"
 libloading = "0.5.0"
 uuid = { version = "0.7", features = ["v4", "serde"] }
+
