@@ -144,7 +144,8 @@ macro_rules! build_plugin_manager {
         }
 
         pub struct $manager_name {
-            plugins: Vec<Box<dyn $crate::Plugin<Box<dyn $plugin_type + Send + Sync>>>>,
+            plugins:
+                Vec<Box<dyn $crate::Plugin<Box<dyn $plugin_type + Send + Sync>> + Sync + Send>>,
             loaders: Vec<Box<dyn $crate::PluginLoader<Item = Box<dyn $plugin_type + Sync + Send>>>>,
         }
 
@@ -168,14 +169,14 @@ macro_rules! build_plugin_manager {
         impl $crate::PluginManager for $manager_name {
             type PluginType = Box<dyn $plugin_type + Sync + Send>;
 
-            fn plugins(&self) -> &Vec<Box<dyn $crate::Plugin<Self::PluginType>>> {
+            fn plugins(&self) -> &Vec<Box<dyn $crate::Plugin<Self::PluginType> + Sync + Send>> {
                 &self.plugins
             }
 
             fn add_plugin(
                 &mut self,
                 plugin: Self::PluginType,
-            ) -> &Box<dyn $crate::Plugin<Self::PluginType>> {
+            ) -> &Box<dyn $crate::Plugin<Self::PluginType> + Sync + Send> {
                 self.plugins.push(Box::new(Instance {
                     id: $crate::uuid::Uuid::new_v4(),
                     instance: plugin,
@@ -193,7 +194,7 @@ macro_rules! build_plugin_manager {
             fn load_plugin(
                 &mut self,
                 path: &std::path::Path,
-            ) -> $crate::Result<&Box<dyn $crate::Plugin<Self::PluginType>>> {
+            ) -> $crate::Result<&Box<dyn $crate::Plugin<Self::PluginType> + Sync + Send>> {
                 let loader = self.loaders.iter().find(|m| m.can(&path));
                 if loader.is_none() {
                     return Err($crate::ErrorKind::Loader(path.to_path_buf()).into());
@@ -238,7 +239,7 @@ macro_rules! declare_plugin {
             let constructor: fn() -> $plugin_type = $constructor;
 
             let object = constructor();
-            let boxed: Box<$plugin_trait> = Box::new(object);
+            let boxed: Box<$plugin_trait + Sync + Send> = Box::new(object);
             Box::into_raw(boxed)
         }
     };

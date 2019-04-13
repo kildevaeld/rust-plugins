@@ -13,7 +13,7 @@ pub trait PluginLoader {
     fn can(&self, path: &Path) -> bool;
 }
 
-pub type PluginBoxed<T> = Box<dyn Plugin<T>>;
+pub type PluginBoxed<T> = Box<dyn Plugin<T> + Sync + Send>;
 
 pub trait PluginManager {
     type PluginType;
