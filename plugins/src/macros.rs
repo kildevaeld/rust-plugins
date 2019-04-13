@@ -4,10 +4,10 @@ macro_rules! native_loader {
     ($plugin_type:ident) => {
         struct NativePlugin {
             id: $crate::uuid::Uuid,
-            plugin: Option<Box<dyn $plugin_type>>,
+            plugin: Option<Box<dyn $plugin_type + Sync + Send>>,
             library: $crate::libloading::Library,
         }
-
+        unsafe impl Sync for NativePlugin {}
         impl Drop for NativePlugin {
             fn drop(&mut self) {
                 self.plugin = None;
@@ -15,11 +15,11 @@ macro_rules! native_loader {
             }
         }
 
-        impl $crate::Plugin<Box<dyn $plugin_type>> for NativePlugin {
+        impl $crate::Plugin<Box<dyn $plugin_type + Sync + Send>> for NativePlugin {
             fn id(&self) -> &$crate::uuid::Uuid {
                 &self.id
             }
-            fn instance(&self) -> Option<&Box<dyn $plugin_type>> {
+            fn instance(&self) -> Option<&Box<dyn $plugin_type + Sync + Send>> {
                 match self.plugin {
                     Some(ref e) => Some(&e),
                     None => None,
@@ -44,7 +44,7 @@ macro_rules! native_loader {
             unsafe fn load_plugin<P: AsRef<std::ffi::OsStr>>(
                 &self,
                 filename: P,
-            ) -> $crate::Result<Box<dyn $crate::Plugin<Box<dyn $plugin_type>>>> {
+            ) -> $crate::Result<Box<dyn $crate::Plugin<Box<dyn $plugin_type + Sync + Send>>>> {
                 type PluginCreate = unsafe fn() -> *mut $plugin_type;
 
                 let lib = if cfg!(unix) {
@@ -61,7 +61,7 @@ macro_rules! native_loader {
 
                 let id = $crate::uuid::Uuid::new_v4();
 
-                let plugin: Box<dyn $plugin_type>;
+                let plugin: Box<dyn $plugin_type + Sync + Send>;
 
                 {
                     let constructor: $crate::libloading::Symbol<PluginCreate> =
@@ -81,7 +81,7 @@ macro_rules! native_loader {
         }
 
         impl $crate::PluginLoader for NativeLoader {
-            type Item = Box<dyn $plugin_type>;
+            type Item = Box<dyn $plugin_type + Sync + Send>;
 
             fn load(
                 &self,
@@ -130,22 +130,22 @@ macro_rules! build_plugin_manager {
     ($plugin_type:ident, $manager_name:ident) => {
         struct Instance {
             id: $crate::uuid::Uuid,
-            instance: Box<dyn $plugin_type>,
+            instance: Box<dyn $plugin_type + Sync + Send>,
         }
 
-        impl $crate::Plugin<Box<dyn $plugin_type>> for Instance {
+        impl $crate::Plugin<Box<dyn $plugin_type + Sync + Send>> for Instance {
             fn id(&self) -> &$crate::uuid::Uuid {
                 &self.id
             }
 
-            fn instance(&self) -> Option<&Box<dyn $plugin_type>> {
+            fn instance(&self) -> Option<&Box<dyn $plugin_type + Sync + Send>> {
                 Some(&self.instance)
             }
         }
 
         pub struct $manager_name {
-            plugins: Vec<Box<dyn $crate::Plugin<Box<dyn $plugin_type>>>>,
-            loaders: Vec<Box<dyn $crate::PluginLoader<Item = Box<dyn $plugin_type>>>>,
+            plugins: Vec<Box<dyn $crate::Plugin<Box<dyn $plugin_type + Send + Sync>>>>,
+            loaders: Vec<Box<dyn $crate::PluginLoader<Item = Box<dyn $plugin_type + Sync + Send>>>>,
         }
 
         native_loader!($plugin_type);
@@ -166,7 +166,7 @@ macro_rules! build_plugin_manager {
         }
 
         impl $crate::PluginManager for $manager_name {
-            type PluginType = Box<dyn $plugin_type>;
+            type PluginType = Box<dyn $plugin_type + Sync + Send>;
 
             fn plugins(&self) -> &Vec<Box<dyn $crate::Plugin<Self::PluginType>>> {
                 &self.plugins

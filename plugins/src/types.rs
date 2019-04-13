@@ -9,7 +9,7 @@ pub trait Plugin<T> {
 
 pub trait PluginLoader {
     type Item;
-    fn load(&self, path: &Path) -> Result<Box<dyn Plugin<Self::Item>>>;
+    fn load(&self, path: &Path) -> Result<Box<dyn Plugin<Self::Item> + Sync + Send>>;
     fn can(&self, path: &Path) -> bool;
 }
 

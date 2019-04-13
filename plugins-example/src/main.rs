@@ -2,7 +2,7 @@
 extern crate plugins;
 use plugins::PluginManager;
 
-pub trait Plugin {
+pub trait Plugin: Send + Sync {
     fn hello(&self);
 }
 
