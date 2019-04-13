@@ -20,7 +20,7 @@ pub trait PluginManager {
 
     fn plugins(&self) -> &Vec<PluginBoxed<Self::PluginType>>;
     fn add_plugin(&mut self, plugin: Self::PluginType) -> &PluginBoxed<Self::PluginType>;
-    fn add_loader(&mut self, loader: Box<dyn PluginLoader<Item = Self::PluginType>>);
+    fn add_loader(&mut self, loader: Box<dyn PluginLoader<Item = Self::PluginType> + Sync + Send>);
     fn load_plugin(&mut self, path: &Path) -> Result<&PluginBoxed<Self::PluginType>>;
     fn unload_plugin(&mut self, id: &Uuid) -> bool;
     fn plugin(&self, id: &Uuid) -> Option<&PluginBoxed<Self::PluginType>> {

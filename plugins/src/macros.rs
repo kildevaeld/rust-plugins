@@ -146,7 +146,13 @@ macro_rules! build_plugin_manager {
         pub struct $manager_name {
             plugins:
                 Vec<Box<dyn $crate::Plugin<Box<dyn $plugin_type + Send + Sync>> + Sync + Send>>,
-            loaders: Vec<Box<dyn $crate::PluginLoader<Item = Box<dyn $plugin_type + Sync + Send>>>>,
+            loaders: Vec<
+                Box<
+                    dyn $crate::PluginLoader<Item = Box<dyn $plugin_type + Sync + Send>>
+                        + Sync
+                        + Send,
+                >,
+            >,
         }
 
         native_loader!($plugin_type);
@@ -186,7 +192,7 @@ macro_rules! build_plugin_manager {
 
             fn add_loader(
                 &mut self,
-                loader: Box<dyn $crate::PluginLoader<Item = Self::PluginType>>,
+                loader: Box<dyn $crate::PluginLoader<Item = Self::PluginType> + Sync + Send>,
             ) {
                 self.loaders.push(loader);
             }
